@@ -74,8 +74,8 @@
         app:backgroundTint="#FF330099"
         app:fabSize="mini"
         app:layout_constraintBottom_toTopOf="@id/et_address"
-        app:layout_constraintLeft_toLeftOf="@id/fab_disconnect"
-        app:layout_constraintRight_toRightOf="@id/fab_verify"/>
+        app:layout_constraintLeft_toLeftOf="@id/fab_verify"
+        app:layout_constraintRight_toRightOf="@id/fab_shut"/>
 
     <EditText
         android:id="@+id/et_address"
@@ -91,25 +91,11 @@
         android:text="192.168.3.19"
         android:textColor="#FF444444"
         android:textSize="14sp"
-        app:layout_constraintBottom_toBottomOf="@id/fab_disconnect"
+        app:layout_constraintBottom_toBottomOf="@id/fab_verify"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintHorizontal_chainStyle="spread"
-        app:layout_constraintRight_toLeftOf="@id/fab_disconnect"
-        app:layout_constraintTop_toTopOf="@id/fab_disconnect" />
-
-
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/fab_disconnect"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:clickable="true"
-        android:scaleType="centerInside"
-        app:backgroundTint="#FFFFFFFF"
-        app:fabSize="mini"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toRightOf="@id/et_address"
-        app:layout_constraintRight_toLeftOf="@id/fab_verify"/>
+        app:layout_constraintRight_toLeftOf="@id/fab_verify"
+        app:layout_constraintTop_toTopOf="@id/fab_verify" />
 
 
     <android.support.design.widget.FloatingActionButton
@@ -119,10 +105,24 @@
         android:layout_marginBottom="20dp"
         android:clickable="true"
         android:scaleType="centerInside"
+        app:backgroundTint="#FFFFFFFF"
+        app:fabSize="mini"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toRightOf="@id/et_address"
+        app:layout_constraintRight_toLeftOf="@id/fab_shut"/>
+
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/fab_shut"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:clickable="true"
+        android:scaleType="centerInside"
         app:backgroundTint="#FF000000"
         app:fabSize="mini"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toRightOf="@id/fab_disconnect"
+        app:layout_constraintLeft_toRightOf="@id/fab_verify"
         app:layout_constraintRight_toRightOf="parent"/>
 
 </android.support.constraint.ConstraintLayout>
