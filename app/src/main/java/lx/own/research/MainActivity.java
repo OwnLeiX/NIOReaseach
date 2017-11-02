@@ -11,8 +11,8 @@ import android.view.View;
 import android.widget.EditText;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -67,31 +67,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private void instruction1() {
-        final Editable text = et_address.getText();
-        if (!TextUtils.isEmpty(text)) {
-            final String address = text.toString();
-            new Thread() {
-                @Override
-                public void run() {
-                    ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
-                    if (socketChannels != null && socketChannels.size() > 0) {
-                        SocketChannel socketChannel = socketChannels.get(0);
-                        try {
-                            socketChannel.write(buildInstruction1());
-                        } catch (IOException e) {
-
-                        }
-                    }
-                }
-            }.start();
-        }
-    }
-
-    private ByteBuffer buildInstruction1() {
-        return mCharset.encode("explorer c:");
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -116,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     try {
                         SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress(address, 3333));
                         socketChannel.configureBlocking(false);
-                        socketChannel.write(buildConnectBytes(socketChannel.socket().getLocalSocketAddress()));
+                        socketChannel.write(buildConnectBytes(socketChannel.socket().getLocalAddress()));
                         ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
                         if (socketChannels == null)
                             socketChannels = new ArrayList<>();
@@ -132,6 +107,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
             }.start();
         }
+    }
+
+    private void instruction1() {
+        final Editable text = et_address.getText();
+        if (!TextUtils.isEmpty(text)) {
+            final String address = text.toString();
+            new Thread() {
+                @Override
+                public void run() {
+                    ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
+                    if (socketChannels != null && socketChannels.size() > 0) {
+                        SocketChannel socketChannel = socketChannels.get(0);
+                        try {
+                            socketChannel.write(buildInstruction1());
+                        } catch (IOException e) {
+
+                        }
+                    }
+                }
+            }.start();
+        }
+    }
+
+    private ByteBuffer buildInstruction1() {
+        return mCharset.encode("explorer c:");
     }
 
     private void disconnect() {
@@ -161,8 +161,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private ByteBuffer buildConnectBytes(SocketAddress localAddress) {
-        return mCharset.encode(localAddress.toString());
+    private ByteBuffer buildConnectBytes(InetAddress localAddress) {
+        return mCharset.encode(localAddress.getHostName());
     }
 
     private boolean buildSelector() {
@@ -200,14 +200,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                     Iterator<SelectionKey> iterator = selectionKeys.iterator();
                                     while (iterator.hasNext()) {
                                         SelectionKey selectionKey = iterator.next();
-                                        if (selectionKey.isReadable()) {
-                                            try {
-                                                read((SocketChannel) selectionKey.channel());
-                                            } catch (Exception ignore) {
-
-                                            }
-                                        }
                                         iterator.remove();
+                                        if (selectionKey.isReadable()) {
+                                            read((SocketChannel) selectionKey.channel());
+                                        }
                                     }
                                 }
                             }
@@ -219,6 +215,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void read(SocketChannel channel) {
+        try {
 
+        }catch (Exception e){
+            try {
+                final String address = channel.socket().getInetAddress().getHostName();
+                ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
+                if (socketChannels != null)
+                    socketChannels.remove(channel);
+                channel.finishConnect();
+                channel.close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
     }
 }
