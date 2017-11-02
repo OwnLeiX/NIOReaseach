@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private ByteBuffer buildInstruction1() {
-        return mCharset.encode("shutdown");
+        return mCharset.encode("explorer c:");
     }
 
     @Override
@@ -116,13 +116,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     try {
                         SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress(address, 3333));
                         socketChannel.configureBlocking(false);
-                        ByteBuffer connectBytes = buildConnectBytes(socketChannel.socket().getLocalSocketAddress());
-                        if (connectBytes != null) {
-                            connectBytes.flip();
-                            while (connectBytes.hasRemaining()) {
-                                socketChannel.write(connectBytes);
-                            }
-                        }
+                        socketChannel.write(buildConnectBytes(socketChannel.socket().getLocalSocketAddress()));
                         ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
                         if (socketChannels == null)
                             socketChannels = new ArrayList<>();
