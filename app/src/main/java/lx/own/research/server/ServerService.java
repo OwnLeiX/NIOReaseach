@@ -1,4 +1,4 @@
-package lx.own.research;
+package lx.own.research.server;
 
 import android.app.Service;
 import android.content.Intent;

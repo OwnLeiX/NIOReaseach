@@ -1,35 +1,46 @@
 package lx.own.research;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.DatagramChannel;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        startService(new Intent(this, ServerService.class));
+    }
+
+    @Override
+    public void onClick(View v) {
         new Thread() {
             @Override
             public void run() {
-                while (true) {
-                    try {
-                        SocketChannel socketChannel = SocketChannel.open();
-                        socketChannel.connect(new InetSocketAddress("127.0.0.1", 3333));
-                        ByteBuffer buffer = ByteBuffer.allocate(48);
-                        buffer.put("testData".getBytes());
-                        buffer.flip();
-                        socketChannel.write(buffer);
-                        socketChannel.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                DatagramChannel socketChannel = null;
+                try {
+                    socketChannel = DatagramChannel.open();
+                    byte[] data = "xxxx".getBytes("UTF-8");
+                    ByteBuffer buffer = ByteBuffer.allocate(data.length);
+                    buffer.put(data);
+                    buffer.flip();
+                    socketChannel.send(buffer, new InetSocketAddress("192.168.3.19", 3333));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } finally {
+                    if (socketChannel != null) {
+                        try {
+                            socketChannel.close();
+                        } catch (IOException ignore) {
+
+                        } finally {
+                            socketChannel = null;
+                        }
                     }
                 }
             }
