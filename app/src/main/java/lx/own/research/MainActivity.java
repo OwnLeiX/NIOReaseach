@@ -14,7 +14,7 @@ import java.nio.channels.DatagramChannel;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
-    private FloatingActionButton fab_connect, fab_disconnect, fab_verify;
+    private FloatingActionButton fab_connect, fab_shut, fab_verify;
     private EditText et_address;
     private RecyclerView rv_sended,rv_received;
 
@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         fab_connect = findViewById(R.id.fab_connect);
-        fab_disconnect = findViewById(R.id.fab_disconnect);
+        fab_shut = findViewById(R.id.fab_shut);
         fab_verify = findViewById(R.id.fab_verify);
 
         et_address = findViewById(R.id.et_address);
@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         rv_received = findViewById(R.id.rv_received);
 
         fab_connect.setOnClickListener(this);
-        fab_disconnect.setOnClickListener(this);
+        fab_shut.setOnClickListener(this);
         fab_verify.setOnClickListener(this);
     }
 
