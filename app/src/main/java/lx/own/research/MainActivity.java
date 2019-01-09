@@ -1,9 +1,11 @@
 package lx.own.research;
 
 import android.os.Bundle;
+import android.os.Message;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -14,6 +16,8 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -25,14 +29,20 @@ import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
+    private final String SEND_MSG_FORMATTER = "Send To %1$s : %2$s";
+    private final String RECV_MSG_FORMATTER = "Received From %1$s : %2$s";
+
     private FloatingActionButton fab_connect, fab_disconnect, fab_instruction1;
     private EditText et_address;
     private RecyclerView rv_sended, rv_received;
+    private MAdapter mSendedAdapter, mReceivedAdapter;
 
     private Selector mSelector;
     private Thread mReaderThread;
-    private final ArrayMap<String, ArrayList<SocketChannel>> mAddressMap = new ArrayMap<>();
+    private final ArrayMap<String, ArrayList<SelectionKey>> mAddressMap = new ArrayMap<>();
     private Charset mCharset = Charset.forName("UTF-8");
+
+    private MainThreadHandler mHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,8 +55,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         et_address = findViewById(R.id.et_address);
 
         rv_sended = findViewById(R.id.rv_sended);
-        rv_received = findViewById(R.id.rv_received);
+        rv_sended.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        mSendedAdapter = new MAdapter();
+        rv_sended.setAdapter(mSendedAdapter);
 
+        rv_received = findViewById(R.id.rv_received);
+        rv_received.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        mReceivedAdapter = new MAdapter();
+        rv_received.setAdapter(mReceivedAdapter);
+        mHandler = new MainThreadHandler(mReceivedAdapter, mSendedAdapter);
         fab_connect.setOnClickListener(this);
         fab_disconnect.setOnClickListener(this);
         fab_instruction1.setOnClickListener(this);
@@ -91,15 +108,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     try {
                         SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress(address, 3333));
                         socketChannel.configureBlocking(false);
-                        socketChannel.write(buildConnectBytes(socketChannel.socket().getLocalAddress()));
-                        ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
-                        if (socketChannels == null)
-                            socketChannels = new ArrayList<>();
-                        socketChannels.add(socketChannel);
-                        mAddressMap.put(address, socketChannels);
                         if (buildSelector()) {
-                            socketChannel.register(mSelector, SelectionKey.OP_READ);
+                            ByteBuffer byteBuffer = ByteBuffer.allocate(128);
+                            synchronized (MainActivity.this) {
+                                if (mReaderThread != null) {
+                                    mReaderThread.interrupt();
+                                    mReaderThread = null;
+                                    mSelector.wakeup();
+                                }
+                            }
+                            SelectionKey selectionKey = socketChannel.register(mSelector, SelectionKey.OP_READ, byteBuffer);
                             buildReader();
+                            ArrayList<SelectionKey> socketChannels = mAddressMap.get(address);
+                            if (socketChannels == null)
+                                socketChannels = new ArrayList<>();
+                            socketChannels.add(selectionKey);
+                            mAddressMap.put(address, socketChannels);
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -116,13 +140,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             new Thread() {
                 @Override
                 public void run() {
-                    ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
-                    if (socketChannels != null && socketChannels.size() > 0) {
-                        SocketChannel socketChannel = socketChannels.get(0);
+                    ArrayList<SelectionKey> keys = mAddressMap.get(address);
+                    if (keys != null && keys.size() > 0) {
+                        final SelectionKey key = keys.get(0);
+                        final SocketChannel socketChannel = (SocketChannel) key.channel();
                         try {
-                            socketChannel.write(buildInstruction1());
+                            socketChannel.write(buildInstruction1("explorer c:"));
+                            sendMsg(MainThreadHandler.MSG_APPEND_SENDED, String.format(SEND_MSG_FORMATTER, address, "explorer c:"));
+                            key.interestOps(SelectionKey.OP_READ);
                         } catch (IOException e) {
-
+                            try {
+                                keys.remove(key);
+                                key.cancel();
+                                socketChannel.finishConnect();
+                                socketChannel.close();
+                                sendMsg(MainThreadHandler.MSG_APPEND_RECEIVED, String.format(RECV_MSG_FORMATTER, address, "write Error, finish connect."));
+                            } catch (IOException e1) {
+                            }
                         }
                     }
                 }
@@ -130,8 +164,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private ByteBuffer buildInstruction1() {
-        return mCharset.encode("explorer c:");
+    private ByteBuffer buildInstruction1(String instruction) {
+        return mCharset.encode(instruction);
     }
 
     private void disconnect() {
@@ -141,12 +175,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             new Thread() {
                 @Override
                 public void run() {
-                    List<SocketChannel> socketChannels = mAddressMap.remove(address);
-                    if (socketChannels != null) {
-                        Iterator<SocketChannel> iterator = socketChannels.iterator();
+                    final List<SelectionKey> keys = mAddressMap.remove(address);
+                    if (keys != null && keys.size() > 0) {
+                        final Iterator<SelectionKey> iterator = keys.iterator();
                         while (iterator.hasNext()) {
                             try {
-                                SocketChannel socketChannel = iterator.next();
+                                final SelectionKey key = iterator.next();
+                                key.cancel();
+                                final SocketChannel socketChannel = (SocketChannel) key.channel();
                                 socketChannel.finishConnect();
                                 socketChannel.close();
                             } catch (IOException e) {
@@ -196,38 +232,68 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                                     }
                                     if (count <= 0) continue;
-                                    Set<SelectionKey> selectionKeys = mSelector.selectedKeys();
-                                    Iterator<SelectionKey> iterator = selectionKeys.iterator();
+                                    final Set<SelectionKey> selectionKeys = mSelector.selectedKeys();
+                                    final Iterator<SelectionKey> iterator = selectionKeys.iterator();
                                     while (iterator.hasNext()) {
-                                        SelectionKey selectionKey = iterator.next();
+                                        final SelectionKey selectionKey = iterator.next();
                                         iterator.remove();
                                         if (selectionKey.isReadable()) {
-                                            read((SocketChannel) selectionKey.channel());
+                                            read(selectionKey);
                                         }
                                     }
                                 }
                             }
                         }
                     };
+                    mReaderThread.start();
                 }
             }
         }
     }
 
-    private void read(SocketChannel channel) {
+    private void read(SelectionKey key) {
+        ByteBuffer byteBuffer = null;
+        SocketChannel channel = null;
         try {
-
-        }catch (Exception e){
+            channel = (SocketChannel) key.channel();
+            byteBuffer = ByteBuffer.allocate(1024);
+            byteBuffer.order(ByteOrder.nativeOrder());
+            int read = channel.read(byteBuffer);
+            if (read == -1) {
+                key.cancel();
+            }
+            byteBuffer.flip();
+            final CharBuffer charBuffer = mCharset.decode(byteBuffer);
+            final StringBuilder stringBuilder = new StringBuilder();
+            while (charBuffer.hasRemaining()) {
+                stringBuilder.append(charBuffer.get());
+            }
+            charBuffer.clear();
+            final String text = stringBuilder.toString();
+            sendMsg(MainThreadHandler.MSG_APPEND_RECEIVED, String.format(RECV_MSG_FORMATTER, channel.socket().getInetAddress().getHostName(), text));
+            key.interestOps(SelectionKey.OP_READ);
+        } catch (Exception e) {
             try {
                 final String address = channel.socket().getInetAddress().getHostName();
-                ArrayList<SocketChannel> socketChannels = mAddressMap.get(address);
-                if (socketChannels != null)
-                    socketChannels.remove(channel);
+                ArrayList<SelectionKey> keys = mAddressMap.get(address);
+                if (keys != null)
+                    keys.remove(key);
+                key.cancel();
                 channel.finishConnect();
                 channel.close();
+                sendMsg(MainThreadHandler.MSG_APPEND_RECEIVED, String.format(RECV_MSG_FORMATTER, address, "read Error, finish connect."));
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
+        } finally {
+            if (byteBuffer != null)
+                byteBuffer.clear();
         }
+    }
+
+    private void sendMsg(int what, Object obj) {
+        final MainThreadHandler handler = this.mHandler;
+        if (handler != null)
+            handler.sendMessage(Message.obtain(handler, what, obj));
     }
 }
